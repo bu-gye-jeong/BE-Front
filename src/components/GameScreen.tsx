@@ -1,7 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { useForceUpdate } from "../hooks/forceUpdate";
-import useWindowDimensions from "../hooks/windowDimensions";
 import { Element } from "./Element";
 
 const MainScreen = styled.div`
@@ -11,65 +9,88 @@ const MainScreen = styled.div`
 `;
 
 export const GameScreen = () => {
-  const { width, height } = useWindowDimensions();
-  const forceUpdate = useForceUpdate();
-  const targetsRef = useRef<Array<HTMLDivElement | null>>(
-    []
-  ) as React.MutableRefObject<Array<HTMLDivElement | null>>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [elements, setElements] = useState(new Array(5).fill(0));
-  const [draggingElement, setDragging] = useState<undefined | number>();
-  const elementsPos = useRef<{
-    [index: number]: { x: number; y: number };
-  }>({ 0: { x: 0, y: 0 } });
+  const [elements, setElements] = useState(new Array(20).fill(0));
+  const [draggingElement, setDragging] = useState<number | undefined>(
+    undefined
+  );
+  const [maxZIndex, setMaxZIndex] = useState(0);
+  const targetRef =
+    useRef<HTMLDivElement>() as React.MutableRefObject<HTMLDivElement>;
+  const mousedownHandler = useCallback(
+    (index: number) => () => {
+      setMaxZIndex((state) => state + 1);
+      setDragging(index);
+    },
+    []
+  );
+  const elementRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  const testOverlap = (elementIndex: number): number | undefined => {
+    const rect1 = elementRefs.current[elementIndex]?.getBoundingClientRect();
+    if (!rect1) return;
+    const sortedRefs = [...elementRefs.current].sort((a, b) =>
+      a?.style?.zIndex
+        ? b?.style?.zIndex
+          ? +b.style.zIndex - +a.style.zIndex
+          : -1
+        : 1
+    );
+
+    for (let i = 1; i < elementRefs.current.length; i++) {
+      const v = sortedRefs[i];
+      if (!v) continue;
+      const rect2 = v.getBoundingClientRect();
+      if (
+        rect1.top <= rect2.bottom &&
+        rect1.bottom >= rect2.top &&
+        rect1.left <= rect2.right &&
+        rect1.right >= rect2.left
+      )
+        return elementRefs.current.indexOf(v);
+    }
+  };
 
   useEffect(() => {
-    const mouseupHandler = () => setDragging(undefined);
-    document.addEventListener("mouseup", mouseupHandler);
+    const mouseleaveHandler = () => setDragging(undefined);
+    const mouseupHandler = (ev: MouseEvent) => {
+      setDragging(undefined);
+      if (ev.target instanceof HTMLElement && ev.target.dataset.index) {
+        const index = parseInt(ev.target.dataset.index);
+        if (isNaN(index)) return;
+        const overlapIndex = testOverlap(index);
+        if (typeof overlapIndex === "undefined") return;
+        else console.log(overlapIndex);
+      }
+    };
+
+    const { current } = targetRef;
+    current.addEventListener("mouseup", mouseupHandler);
+    current.addEventListener("mouseleave", mouseleaveHandler);
     return () => {
-      document.removeEventListener("mouseup", mouseupHandler);
+      current.removeEventListener("mouseup", mouseupHandler);
+      current.removeEventListener("mouseleave", mouseleaveHandler);
     };
   }, []);
 
   useEffect(() => {
-    targetsRef.current = targetsRef.current.slice(0, elements.length);
+    elementRefs.current = elementRefs.current.slice(0, elements.length);
   }, [elements]);
 
-  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    if (typeof draggingElement === "undefined") return;
-    elementsPos.current[draggingElement] = {
-      x: Math.min(
-        Math.max(elementsPos.current[draggingElement].x + e.movementX, 0),
-        width - (targetsRef.current[draggingElement]?.offsetWidth ?? 0)
-      ),
-      y: Math.min(
-        Math.max(elementsPos.current[draggingElement].y + e.movementY, 0),
-        height - (targetsRef.current[draggingElement]?.offsetHeight ?? 0)
-      ),
-    };
-    forceUpdate();
-  };
-
   return (
-    <MainScreen onMouseMove={handleMouseMove}>
+    <MainScreen ref={targetRef}>
       {elements.map((v, i) => (
         <Element
           key={i}
-          ref={(el) => (targetsRef.current[i] = el)}
-          style={(() => {
-            if (elementsPos.current[i]) {
-              return {
-                left: elementsPos.current[i].x,
-                top: elementsPos.current[i].y,
-              };
-            } else {
-              elementsPos.current[i] = { x: 0, y: 0 };
-              return { left: 0, top: 0 };
-            }
-          })()}
+          index={i}
           elementId={v}
           isDragging={draggingElement === i}
-          onMouseDown={() => setDragging(i)}
+          onMouseDown={mousedownHandler(i)}
+          screenRef={targetRef}
+          ref={(el) => {
+            elementRefs.current[i] = el;
+          }}
+          zIndex={draggingElement === i ? maxZIndex + 1 : undefined}
         />
       ))}
     </MainScreen>

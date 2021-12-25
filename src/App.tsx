@@ -5,6 +5,7 @@ import { GameScreen } from "./components/GameScreen";
 import store from "./store";
 import { GlobalStyle } from "./styles/GlobalStyle";
 import { theme } from "./styles/theme";
+import "./font/font.css";
 
 function App() {
   return (

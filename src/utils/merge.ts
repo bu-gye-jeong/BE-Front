@@ -14,6 +14,10 @@ export function mergeObject(target: any, source: any) {
   }
   return target;
 }
+export function deepCopy<T>(obj: T): T {
+  return mergeObject({}, obj);
+}
+
 export function mergeArray(target: Array<any>, source: Array<any>) {
   for (let i = 0, l = source.length; i < l; i++) {
     if (Array.isArray(source[i])) {
