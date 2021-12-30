@@ -26,6 +26,7 @@ const ElementWrapper = styled.div`
 
   :hover {
     transform: scale(1.1);
+    cursor: pointer;
     box-shadow: 0 0 15px ${({ theme }) => theme.color.eleShadow};
   }
 

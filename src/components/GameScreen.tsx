@@ -1,3 +1,4 @@
+import { nanoid } from "@reduxjs/toolkit";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { Element } from "./Element";
@@ -8,9 +9,21 @@ const MainScreen = styled.div`
   background-color: ${({ theme }) => theme.color.bg};
 `;
 
+interface IElement {
+  elementId: number;
+  id: string;
+}
+
+const createNewElement = (elementId: number): IElement => ({
+  elementId,
+  id: nanoid(),
+});
+
 export const GameScreen = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [elements, setElements] = useState(new Array(20).fill(0));
+  const [elements, setElements] = useState<IElement[]>(
+    Array.from({ length: 20 }, () => createNewElement(0))
+  );
   const [draggingElement, setDragging] = useState<number | undefined>(
     undefined
   );
@@ -52,6 +65,14 @@ export const GameScreen = () => {
   };
 
   useEffect(() => {
+    const merge = (ele1index: number, ele2index: number, toCreate: number) => {
+      const newElements = (elements: IElement[]) =>
+        elements
+          .filter((_, i) => i !== ele2index)
+          .map((v, i) => (i === ele1index ? { ...v, elementId: toCreate } : v));
+      setElements(newElements);
+    };
+
     const mouseleaveHandler = () => setDragging(undefined);
     const mouseupHandler = (ev: MouseEvent) => {
       setDragging(undefined);
@@ -60,7 +81,7 @@ export const GameScreen = () => {
         if (isNaN(index)) return;
         const overlapIndex = testOverlap(index);
         if (typeof overlapIndex === "undefined") return;
-        else console.log(overlapIndex);
+        else merge(index, overlapIndex, 0);
       }
     };
 
@@ -81,9 +102,9 @@ export const GameScreen = () => {
     <MainScreen ref={targetRef}>
       {elements.map((v, i) => (
         <Element
-          key={i}
+          key={v.id}
           index={i}
-          elementId={v}
+          elementId={v.elementId}
           isDragging={draggingElement === i}
           onMouseDown={mousedownHandler(i)}
           screenRef={targetRef}
