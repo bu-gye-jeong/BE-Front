@@ -4,7 +4,7 @@ import styled from "styled-components";
 import waterImg from "../resources/water.png";
 import { convertUnit } from "../utils/convert";
 
-const ElementWrapper = styled.div`
+const ElementWrapper = styled.div<{ isHovering: boolean }>`
   --elementSize: 10vmin;
   position: absolute;
   width: var(--elementSize);
@@ -34,6 +34,13 @@ const ElementWrapper = styled.div`
     transform: scale(1.2);
     box-shadow: 0 0 20px ${({ theme }) => theme.color.eleShadow};
   }
+
+  ${({ isHovering, theme }) => {
+    return isHovering
+      ? `transform: scale(1.1); 
+      box-shadow: 0 0 15px ${theme.color.eleShadow};`
+      : null;
+  }}
 `;
 
 const ElementName = styled.div`
@@ -51,6 +58,7 @@ const ElementName = styled.div`
 interface ElementProps {
   elementId: number;
   isDragging: boolean;
+  isHovering: boolean;
   onMouseDown: React.MouseEventHandler<HTMLDivElement> | undefined;
   screenRef: React.MutableRefObject<HTMLDivElement>;
   zIndex?: number;
@@ -58,7 +66,7 @@ interface ElementProps {
 }
 
 export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
-  ({ elementId, isDragging, onMouseDown, screenRef, zIndex, index }, ref) => {
+  (props, ref) => {
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [prevZIndex, setPrevZIndex] = useState(0);
     const targetRef =
@@ -70,7 +78,7 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
           x: convertUnit(
             Math.min(
               Math.max(convertUnit(state.x, "vw", "px") + ev.movementX, 0),
-              screenRef.current.offsetWidth -
+              props.screenRef.current.offsetWidth -
                 (targetRef?.current?.offsetWidth ?? 0)
             ),
             "px",
@@ -79,7 +87,7 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
           y: convertUnit(
             Math.min(
               Math.max(convertUnit(state.y, "vh", "px") + ev.movementY, 0),
-              screenRef.current.offsetHeight -
+              props.screenRef.current.offsetHeight -
                 (targetRef?.current?.offsetHeight ?? 0)
             ),
             "px",
@@ -87,28 +95,28 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
           ),
         }));
       },
-      [screenRef]
+      [props.screenRef]
     );
 
     useEffect(() => {
-      if (isDragging) {
+      if (props.isDragging) {
         window.addEventListener("mousemove", handleMouseMove);
       } else {
         window.removeEventListener("mousemove", handleMouseMove);
       }
-    }, [isDragging, handleMouseMove]);
+    }, [props.isDragging, handleMouseMove]);
 
     useEffect(() => {
-      if (!zIndex) return;
-      setPrevZIndex(zIndex);
-    }, [zIndex]);
+      if (!props.zIndex) return;
+      setPrevZIndex(props.zIndex);
+    }, [props.zIndex]);
 
     return (
       <ElementWrapper
         style={{
           left: pos.x + "vw",
           top: pos.y + "vh",
-          zIndex: zIndex ?? prevZIndex,
+          zIndex: props.zIndex ?? prevZIndex,
         }}
         ref={(node) => {
           targetRef.current = node;
@@ -119,8 +127,9 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
               node;
           }
         }}
-        onMouseDown={onMouseDown}
-        data-index={index}>
+        isHovering={props.isHovering}
+        onMouseDown={props.onMouseDown}
+        data-index={props.index}>
         <ElementName>WATER DROP</ElementName>
       </ElementWrapper>
     );

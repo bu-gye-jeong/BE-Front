@@ -27,6 +27,9 @@ export const GameScreen = () => {
   const [draggingElement, setDragging] = useState<number | undefined>(
     undefined
   );
+  const [hoveringElement, setHovering] = useState<number | undefined>(
+    undefined
+  );
   const [maxZIndex, setMaxZIndex] = useState(0);
   const targetRef =
     useRef<HTMLDivElement>() as React.MutableRefObject<HTMLDivElement>;
@@ -76,6 +79,7 @@ export const GameScreen = () => {
     const mouseleaveHandler = () => setDragging(undefined);
     const mouseupHandler = (ev: MouseEvent) => {
       setDragging(undefined);
+      setHovering(undefined);
       if (ev.target instanceof HTMLElement && ev.target.dataset.index) {
         const index = parseInt(ev.target.dataset.index);
         if (isNaN(index)) return;
@@ -95,6 +99,20 @@ export const GameScreen = () => {
   }, []);
 
   useEffect(() => {
+    const mousemoveHandler = () => {
+      if (typeof draggingElement === "undefined") return;
+      const overlapIndex = testOverlap(draggingElement);
+      setHovering(overlapIndex);
+    };
+
+    const { current } = targetRef;
+    current.addEventListener("mousemove", mousemoveHandler);
+    return () => {
+      current.removeEventListener("mousemove", mousemoveHandler);
+    };
+  }, [draggingElement]);
+
+  useEffect(() => {
     elementRefs.current = elementRefs.current.slice(0, elements.length);
   }, [elements]);
 
@@ -106,6 +124,7 @@ export const GameScreen = () => {
           index={i}
           elementId={v.elementId}
           isDragging={draggingElement === i}
+          isHovering={hoveringElement === i}
           onMouseDown={mousedownHandler(i)}
           screenRef={targetRef}
           ref={(el) => {
