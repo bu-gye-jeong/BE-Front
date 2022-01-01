@@ -1,6 +1,8 @@
 import { nanoid } from "@reduxjs/toolkit";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
+import { mergeTransitionDuration } from "../constants";
+import { convertUnit } from "../utils/convert";
 import { Element } from "./Element";
 
 const MainScreen = styled.div`
@@ -14,6 +16,16 @@ interface IElement {
   id: string;
 }
 
+export interface IMergingElement {
+  id: string;
+  targetPos: { x: number; y: number };
+}
+
+export interface IMergedElement {
+  id: string;
+  targetPos: { x: number; y: number };
+}
+
 const createNewElement = (elementId: number): IElement => ({
   elementId,
   id: nanoid(),
@@ -24,37 +36,44 @@ export const GameScreen = () => {
   const [elements, setElements] = useState<IElement[]>(
     Array.from({ length: 20 }, () => createNewElement(0))
   );
-  const [draggingElement, setDragging] = useState<number | undefined>(
+  const [draggingElement, setDragging] = useState<string | undefined>(
     undefined
   );
-  const [hoveringElement, setHovering] = useState<number | undefined>(
+  const [hoveringElement, setHovering] = useState<string | undefined>(
     undefined
   );
+  const [mergingElements, setMerging] = useState<IMergingElement[]>([]);
+  const [mergedElements, setMerged] = useState<IMergedElement[]>([]);
   const [maxZIndex, setMaxZIndex] = useState(0);
   const targetRef =
     useRef<HTMLDivElement>() as React.MutableRefObject<HTMLDivElement>;
   const mousedownHandler = useCallback(
-    (index: number) => () => {
+    (id: string) => () => {
+      if (
+        mergingElements.find((v) => v.id === id) ||
+        mergedElements.find((v) => v.id === id)
+      )
+        return;
       setMaxZIndex((state) => state + 1);
-      setDragging(index);
+      setDragging(id);
     },
-    []
+    [mergedElements, mergingElements]
   );
-  const elementRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const elementRefs = useRef<{ [id: string]: HTMLDivElement | null }>({});
 
-  const testOverlap = (elementIndex: number): number | undefined => {
-    const rect1 = elementRefs.current[elementIndex]?.getBoundingClientRect();
+  const testOverlap = (id: string): string | undefined => {
+    const rect1 = elementRefs.current[id]?.getBoundingClientRect();
     if (!rect1) return;
-    const sortedRefs = [...elementRefs.current].sort((a, b) =>
-      a?.style?.zIndex
-        ? b?.style?.zIndex
-          ? +b.style.zIndex - +a.style.zIndex
+    const sortedRefs = [...Object.entries(elementRefs.current)].sort((a, b) =>
+      a[1]?.style?.zIndex
+        ? b[1]?.style?.zIndex
+          ? +b[1].style.zIndex - +a[1].style.zIndex
           : -1
         : 1
     );
 
-    for (let i = 1; i < elementRefs.current.length; i++) {
-      const v = sortedRefs[i];
+    for (let i = 1; i < sortedRefs.length; i++) {
+      const v = sortedRefs[i][1];
       if (!v) continue;
       const rect2 = v.getBoundingClientRect();
       if (
@@ -63,29 +82,51 @@ export const GameScreen = () => {
         rect1.left <= rect2.right &&
         rect1.right >= rect2.left
       )
-        return elementRefs.current.indexOf(v);
+        return Object.keys(elementRefs.current).find(
+          (key) => elementRefs.current[key] === v
+        );
     }
   };
 
   useEffect(() => {
-    const merge = (ele1index: number, ele2index: number, toCreate: number) => {
-      const newElements = (elements: IElement[]) =>
-        elements
-          .filter((_, i) => i !== ele2index)
-          .map((v, i) => (i === ele1index ? { ...v, elementId: toCreate } : v));
-      setElements(newElements);
+    const merge = (ele1id: string, ele2id: string, toCreate: number) => {
+      const mergingRect = elementRefs.current[ele1id]?.getBoundingClientRect();
+      const mergedRect = elementRefs.current[ele2id]?.getBoundingClientRect();
+      if (!mergingRect || !mergedRect) return;
+      const mergingPos = {
+        x: convertUnit(mergingRect.x, "px", "vw"),
+        y: convertUnit(mergingRect.y, "px", "vh"),
+      };
+      const mergedPos = {
+        x: convertUnit(mergedRect.x, "px", "vw"),
+        y: convertUnit(mergedRect.y, "px", "vh"),
+      };
+
+      setMerging((state) => [...state, { id: ele1id, targetPos: mergedPos }]);
+      setMerged((state) => [...state, { id: ele2id, targetPos: mergingPos }]);
+
+      setTimeout(() => {
+        setElements((elements) =>
+          elements.map((v, i) =>
+            v.id === ele1id ? { ...v, elementId: toCreate } : v
+          )
+        );
+        setMerging((state) => state.filter((v, _) => v.id !== ele1id));
+        setMerged((state) => state.filter((v, _) => v.id !== ele2id));
+        setElements((elements) => elements.filter((v, _) => v.id !== ele2id));
+      }, mergeTransitionDuration * 1000);
     };
 
     const mouseleaveHandler = () => setDragging(undefined);
     const mouseupHandler = (ev: MouseEvent) => {
       setDragging(undefined);
       setHovering(undefined);
-      if (ev.target instanceof HTMLElement && ev.target.dataset.index) {
-        const index = parseInt(ev.target.dataset.index);
-        if (isNaN(index)) return;
-        const overlapIndex = testOverlap(index);
-        if (typeof overlapIndex === "undefined") return;
-        else merge(index, overlapIndex, 0);
+      if (ev.target instanceof HTMLElement && ev.target.dataset.id) {
+        const id = ev.target.dataset.id;
+        if (!id) return;
+        const overlapId = testOverlap(id);
+        if (typeof overlapId === "undefined") return;
+        else merge(id, overlapId, 1);
       }
     };
 
@@ -113,7 +154,12 @@ export const GameScreen = () => {
   }, [draggingElement]);
 
   useEffect(() => {
-    elementRefs.current = elementRefs.current.slice(0, elements.length);
+    const elementIds = elements.map((v) => v.id);
+    elementRefs.current = Object.fromEntries(
+      Object.entries(elementRefs.current).filter((v) =>
+        elementIds.includes(v[0])
+      )
+    );
   }, [elements]);
 
   return (
@@ -121,16 +167,18 @@ export const GameScreen = () => {
       {elements.map((v, i) => (
         <Element
           key={v.id}
-          index={i}
+          id={v.id}
           elementId={v.elementId}
-          isDragging={draggingElement === i}
-          isHovering={hoveringElement === i}
-          onMouseDown={mousedownHandler(i)}
+          isDragging={draggingElement === v.id}
+          isHovering={hoveringElement === v.id}
+          mergingData={mergingElements.find((ele) => v.id === ele.id)}
+          mergedData={mergedElements.find((ele) => v.id === ele.id)}
+          onMouseDown={mousedownHandler(v.id)}
           screenRef={targetRef}
           ref={(el) => {
-            elementRefs.current[i] = el;
+            elementRefs.current[v.id] = el;
           }}
-          zIndex={draggingElement === i ? maxZIndex + 1 : undefined}
+          zIndex={draggingElement === v.id ? maxZIndex + 1 : undefined}
         />
       ))}
     </MainScreen>

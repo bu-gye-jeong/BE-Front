@@ -1,10 +1,18 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useEffect } from "react";
 import styled from "styled-components";
+import { mergeTransitionDuration } from "../constants";
 import waterImg from "../resources/water.png";
+import fireImg from "../resources/fire.png";
 import { convertUnit } from "../utils/convert";
+import { IMergedElement, IMergingElement } from "./GameScreen";
 
-const ElementWrapper = styled.div<{ isHovering: boolean }>`
+const ElementWrapper = styled.div<{
+  isHovering: boolean;
+  mergingData: IMergingElement | undefined;
+  mergedData: IMergedElement | undefined;
+  elementId: number;
+}>`
   --elementSize: 10vmin;
   position: absolute;
   width: var(--elementSize);
@@ -13,7 +21,9 @@ const ElementWrapper = styled.div<{ isHovering: boolean }>`
   border-radius: 1vmin;
   padding: 0;
 
-  background-image: url("${waterImg}");
+  background-image: url("${({ elementId }) =>
+    elementId === 0 ? waterImg : fireImg}");
+
   background-repeat: no-repeat;
   background-size: var(--elementSize);
   image-rendering: pixelated;
@@ -22,7 +32,7 @@ const ElementWrapper = styled.div<{ isHovering: boolean }>`
   box-shadow: 0 0 10px ${({ theme }) => theme.color.eleShadow};
 
   transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1),
-    box-shadow 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    box-shadow 0.3s cubic-bezier(0.23, 1, 0.32, 1), background-image 0.2s linear;
 
   :hover {
     transform: scale(1.1);
@@ -35,12 +45,30 @@ const ElementWrapper = styled.div<{ isHovering: boolean }>`
     box-shadow: 0 0 20px ${({ theme }) => theme.color.eleShadow};
   }
 
+  ${({ mergingData }) => {
+    return mergingData
+      ? `transform: scale(1.3) !important; 
+  transition: transform ${mergeTransitionDuration}s
+    cubic-bezier(0.075, 0.82, 0.165, 1);`
+      : null;
+  }}
+  ${({ mergedData }) => {
+    return mergedData
+      ? `transform: scale(0.3) !important; 
+  top: ${mergedData.targetPos.y}vh !important;
+  left: ${mergedData.targetPos.x}vw !important;
+  transition: transform ${mergeTransitionDuration}s
+  cubic-bezier(.72,-1.24,.33,-0.04), 
+    top ${mergeTransitionDuration}s cubic-bezier(.32,-3.29,.85,.59),
+    left ${mergeTransitionDuration}s cubic-bezier(.32,-3.29,.85,.59);`
+      : null;
+  }}
   ${({ isHovering, theme }) => {
     return isHovering
       ? `transform: scale(1.1); 
       box-shadow: 0 0 15px ${theme.color.eleShadow};`
       : null;
-  }}
+  }};
 `;
 
 const ElementName = styled.div`
@@ -59,10 +87,12 @@ interface ElementProps {
   elementId: number;
   isDragging: boolean;
   isHovering: boolean;
+  mergedData: IMergedElement | undefined;
+  mergingData: IMergingElement | undefined;
   onMouseDown: React.MouseEventHandler<HTMLDivElement> | undefined;
   screenRef: React.MutableRefObject<HTMLDivElement>;
   zIndex?: number;
-  index: number;
+  id: string;
 }
 
 export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
@@ -74,6 +104,7 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
 
     const handleMouseMove = useCallback(
       (ev: MouseEvent) => {
+        if (props.mergingData || props.mergedData) return;
         setPos((state) => ({
           x: convertUnit(
             Math.min(
@@ -95,7 +126,7 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
           ),
         }));
       },
-      [props.screenRef]
+      [props.mergingData, props.mergedData, props.screenRef]
     );
 
     useEffect(() => {
@@ -113,6 +144,7 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
 
     return (
       <ElementWrapper
+        elementId={props.elementId}
         style={{
           left: pos.x + "vw",
           top: pos.y + "vh",
@@ -128,9 +160,13 @@ export const Element = React.forwardRef<HTMLDivElement, ElementProps>(
           }
         }}
         isHovering={props.isHovering}
+        mergingData={props.mergingData}
+        mergedData={props.mergedData}
         onMouseDown={props.onMouseDown}
-        data-index={props.index}>
-        <ElementName>WATER DROP</ElementName>
+        data-id={props.id}>
+        <ElementName data-id={props.id}>
+          {props.elementId === 0 ? "WATER DROP" : "FIRE"}
+        </ElementName>
       </ElementWrapper>
     );
   }
