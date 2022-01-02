@@ -1,21 +1,30 @@
-import React from "react";
-import { Provider } from "react-redux";
-import { ThemeProvider } from "styled-components";
+import React, { useEffect } from "react";
+import styled from "styled-components";
 import { GameScreen } from "./components/GameScreen";
-import store from "./store";
-import { GlobalStyle } from "./styles/GlobalStyle";
-import { theme } from "./styles/theme";
 import "./font/font.css";
+import { LoginButton } from "./components/LoginButton";
+import { checkLoggedIn } from "./slices/userSlice";
+import { useAppDispatch } from "./hooks/redux";
+
+const StyledApp = styled.div`
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+`;
 
 function App() {
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    dispatch(checkLoggedIn());
+  }, [dispatch]);
+
   return (
     <>
-      <GlobalStyle />
-      <Provider store={store}>
-        <ThemeProvider theme={theme}>
-          <GameScreen />
-        </ThemeProvider>
-      </Provider>
+      <StyledApp>
+        <LoginButton />
+        <GameScreen />
+      </StyledApp>
     </>
   );
 }

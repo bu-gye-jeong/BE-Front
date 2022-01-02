@@ -6,8 +6,10 @@ import { convertUnit } from "../utils/convert";
 import { Element } from "./Element";
 
 const MainScreen = styled.div`
-  width: 100vw;
-  height: 100vh;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex-grow: 1;
   background-color: ${({ theme }) => theme.color.bg};
 `;
 
