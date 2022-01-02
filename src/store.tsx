@@ -21,11 +21,11 @@ const store = configureStore({
   }),
 });
 
-store.subscribe(() => {
+store.subscribe(
   _.throttle(() => {
     localStorage.setItem("BE", JSON.stringify(store.getState()));
-  }, 1000);
-});
+  }, 1000)
+);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

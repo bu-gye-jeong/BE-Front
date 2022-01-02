@@ -18,9 +18,13 @@ export const initialState = {
 
 export const checkLoggedIn = createAsyncThunk(
   "user/checkLoggedIn",
-  async () => {
-    const response = await customAxios.get("/auth/test");
-    return response.data;
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await customAxios.get("/api/auth/test");
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err);
+    }
   }
 );
 
