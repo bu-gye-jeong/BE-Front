@@ -95,13 +95,14 @@ export const GameScreen = () => {
       const mergingRect = elementRefs.current[ele1id]?.getBoundingClientRect();
       const mergedRect = elementRefs.current[ele2id]?.getBoundingClientRect();
       if (!mergingRect || !mergedRect) return;
+      const screenRect = targetRef.current.getBoundingClientRect();
       const mergingPos = {
-        x: convertUnit(mergingRect.x, "px", "vw"),
-        y: convertUnit(mergingRect.y, "px", "vh"),
+        x: convertUnit(mergingRect.x - screenRect.x, "px", "vw"),
+        y: convertUnit(mergingRect.y - screenRect.y, "px", "vh"),
       };
       const mergedPos = {
-        x: convertUnit(mergedRect.x, "px", "vw"),
-        y: convertUnit(mergedRect.y, "px", "vh"),
+        x: convertUnit(mergedRect.x - screenRect.x, "px", "vw"),
+        y: convertUnit(mergedRect.y - screenRect.y, "px", "vh"),
       };
 
       setMerging((state) => [...state, { id: ele1id, targetPos: mergedPos }]);
